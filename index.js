@@ -31,11 +31,13 @@ const credentials = {
 let middleware = require("./util/middleware.js");
 
 const users = require("./controllers/user.controller.js");
-const devices = require("./controllers/device.controller.js");
+const orders = require("./controllers/order.controller.js");
 
-const Device = require("./models/device.model.js");
+const Order = require("./models/order.model.js");
 
-const port = process.env.PORT || 80;
+const port = process.env.PORT || 5000;
+const MIN_STOCK = 50;
+const PURCHASE_FACTOR = 1.25;
 
 // INIT
 const app = express();
@@ -97,8 +99,8 @@ app.get("/", async (req, res) => {
 });
 
 app.get("/dashboard", middleware.checkToken, async (req, res) => {
-  const devicesArray = await devices.findOne(req);
-  res.render("dashboard", { devices: devicesArray });
+  const ordersArray = await orders.findOne(req);
+  res.render("dashboard", { orders: ordersArray });
 });
 
 app.get("/login", async (req, res) => {
@@ -132,44 +134,94 @@ app.get("/logout", async (req, res) => {
   res.redirect("/");
 });
 
-app.get("/addDevice", middleware.checkToken, async (req, res) => {
+app.get("/createOrder", middleware.checkToken, async (req, res) => {
   const user = {
     companyName: req.cookies.ctCompanyName,
   };
-  res.render("addDevice", { user });
+  res.render("createOrder", { user });
 });
 
-app.post("/addSingleDevice", middleware.checkToken, async (req, res) => {
-  await devices.create(req, res);
-});
+const getFileFromRequest = (filePath) => {
+  let wb = xlsx.readFile(filePath);
+  let ws = wb.Sheets["Sheet1"];
+  let data = xlsx.utils.sheet_to_json(ws);
+  return data;
+}
 
-app.post("/addMultipleDevices", middleware.checkToken, async (req, res) => {
-  let count = {
-    success: 0,
-    duplicates: 0,
-  };
+const getFormattedId = (productName, manufacturer, packing) => {
+  productName = productName.trim();
+  manufacturer = manufacturer.trim();
+  packing = packing.replaceAll(" ", "");
+  const id = `${productName}$${manufacturer}$${packing}`
+  return id;
+}
+
+const getInfoFromId = (id) => {
+  return id.split("$");
+}
+
+app.post("/createOrder", middleware.checkToken, async (req, res) => {
   if (req.files) {
-    let file = req.files.deviceFile.tempFilePath;
-    let wb = xlsx.readFile(file);
-    let ws = wb.Sheets["Sheet1"];
-    let data = xlsx.utils.sheet_to_json(ws);
-    let device;
-    for (let i = 0; i < data.length; i++) {
-      try {
-        device = new Device({
-          username: req.decoded.username,
-          deviceID: data[i].DeviceID,
-          description: data[i].Description,
-        });
-        await device.save();
-        count.success++;
-      } catch (error) {
-        count.duplicates++;
+    let stockFile = req.files.stockFile.tempFilePath;
+    let salesFile = req.files.salesFile.tempFilePath;
+    let distributorStockFile = req.files.distributorStockFile.tempFilePath;
+
+    let stockData = getFileFromRequest(stockFile);
+    let salesData = getFileFromRequest(salesFile);
+    let distributorStockData = getFileFromRequest(distributorStockFile);
+
+    // trim all and remove spaces for packing
+    let stockCollection = {};
+    let salesCollection = {};
+    let distributorStockCollection = {};
+    let report = [];
+
+    for (let i = 0; i < salesData.length; i++){
+      const id = getFormattedId(data[i]["ProductName"], data[i]["Manufacturer"], data[i]["Packing"])
+      salesCollection[id] = data[i]["Sales"]
+    }
+
+    for (let i = 0; i < distributorStockData.length; i++){
+      const id = getFormattedId(data[i]["ProductName"], data[i]["Manufacturer"], data[i]["Packing"])
+      distributorStockCollection[id] = data[i]["Available Stock"]
+    }
+    
+    let counter = 0;
+    for (let i = 0; i < stockData.length; i++){
+      const id = getFormattedId(data[i]["ProductName"], data[i]["Manufacturer"], data[i]["Packing"])
+
+      if (data[i]["Stock Quantity"] <= MIN_STOCK ){
+        const orderQuantity = salesCollection[id] * PURCHASE_FACTOR;
+        if (distributorStockCollection[id] >= orderQuantity){
+          productName, manufacturer, packing = getInfoFromId(id);
+          item = {
+            id: counter++,
+            productName,
+            manufacturer,
+            packing,
+            orderQuantity
+          }
+          report.push(item);
+        }
       }
     }
+
+    const orderId = await Order.count();
+    try {
+      order = new Order({
+        orderId,
+        description: "Supplier Name Here",
+        username: req.decoded.username,
+        report
+      });
+      await order.save();
+    } catch (error) {
+      console.log(error);
+    }
+    
     res.render("error", {
       error: {
-        header: "Added records!",
+        header: `Order #${orderId} placed!`,
         message: `Total records: ${count.success + count.duplicates} - 
         Added records:  ${count.success} -
         Duplicate records: ${count.duplicates}`,
@@ -186,7 +238,7 @@ try {
     console.log("HTTPS Server running on port 443");
   });
 } catch (exp) {
-  console.log(exp);
+  // console.log(exp);
 }
 
 const httpServer = http.createServer(app);

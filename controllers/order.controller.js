@@ -1,28 +1,28 @@
-const Device = require("../models/device.model.js");
+const Order = require("../models/order.model.js");
 
-// Retrieve and return all devices from the database.
+// Retrieve and return all orders from the database.
 exports.findAll = () => {
-  return Device.find();
+  return Order.find();
 };
 
-// Find a single device with a deviceID
+// Find a single order with a orderID
 exports.findOne = (req) => {
-  return Device.find({
+  return Order.find({
     username: req.decoded.username,
   });
 };
 
-// Create and Save a new device
+// Create and Save a new order
 exports.create = async (req, res) => {
-  // Create a device
-  const device = new Device({
+  // Create a order
+  const order = new Order({
     username: req.decoded.username,
-    deviceID: req.body.deviceID,
+    orderID: req.body.orderID,
     description: req.body.description,
     status: req.body.status,
   });
 
-  device
+  order
     .save()
     .then(() => {
       res.redirect("/addDevice");
@@ -31,13 +31,13 @@ exports.create = async (req, res) => {
       err.success = false;
       err.message1 = err.message;
       err.message = "";
-      if (err.message1.includes("deviceID")) {
-        err.message = err.message + "Device ID is already taken. \n";
+      if (err.message1.includes("orderID")) {
+        err.message = err.message + "Order ID is already taken. \n";
       }
       res.render("error", {
         error: {
           header: `Multiple entry!`,
-          message: `${err.keyValue.deviceID} already exists!`,
+          message: `${err.keyValue.orderID} already exists!`,
         },
       });
     });

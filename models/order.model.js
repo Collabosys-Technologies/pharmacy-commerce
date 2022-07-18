@@ -1,10 +1,11 @@
 const mongoose = require("mongoose");
+const Report = require("./report.model");
 
 var Schema = mongoose.Schema;
 
-var deviceSchema = new Schema(
+var orderSchema = new Schema(
   {
-    deviceID: {
+    orderId: {
       type: String,
       unique: true,
       required: [true, "can't be blank"],
@@ -12,9 +13,12 @@ var deviceSchema = new Schema(
     },
     description: String,
     username: String,
-    status: String,
+    report: [{
+      type: Schema.ObjectId,
+      ref: 'Report'
+    }]
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Device", deviceSchema);
+module.exports = mongoose.model("Order", orderSchema);

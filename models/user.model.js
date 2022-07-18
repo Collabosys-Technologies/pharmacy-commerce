@@ -25,6 +25,7 @@ var userSchema = new Schema(
     companyName: String,
     companyAddress: String,
     country: String,
+    purchaseFactor: Number
   },
   { timestamps: true }
 );

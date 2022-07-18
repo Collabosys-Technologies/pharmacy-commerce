@@ -27,15 +27,19 @@
             <table class="table">
               <thead>
                 <tr>
-                  <th scope="col">Device ID</th>
+                  <th scope="col">Order ID</th>
+                  <th scope="col">Date</th>
                   <th scope="col">Description</th>
+                  <th scope="col">Created By</th>
                 </tr>
               </thead>
               <tbody>
-                <% for(let i = 0; i < devices.length; i++){ %>
+                <% for(let i = 0; i < orders.length; i++){ %>
                 <tr>
-                  <th scope="row"><%= devices[i].deviceID %></th>
-                  <td><%= devices[i].description %></td>
+                  <th scope="row"><%= orders[i].orderID %></th>
+                  <td><%= orders[i].date %></td>
+                  <td><%= orders[i].description %></td>
+                  <td><%= orders[i].username %></td>
                 </tr>
                 <% } %>
               </tbody>
